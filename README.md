@@ -2,13 +2,13 @@
 
 > A High-Performance, Keyboard-Driven Package Manager Terminal User Interface (TUI) for Arch Linux.
 
-`pkgtui` is a terminal wrapper that makes searching, selecting, installing, removing, and managing packages from official Arch Linux repositories and the AUR (via `yay`/`paru`) visually intuitive, lightning-fast, and distraction-free.
+`pkgman` is a terminal wrapper that makes searching, selecting, installing, removing, and managing packages from official Arch Linux repositories and the AUR (via `yay`/`paru`) visually intuitive, lightning-fast, and distraction-free.
 
 ---
 
 ## 📸 Preview
 
-![pkgtui-ultra Interface](assets/preview.png)
+![pkgman-ultra Interface](assets/preview.png)
 
 ---
 
@@ -16,10 +16,10 @@
 
 While Arch Linux's `pacman` and AUR helpers like `yay` or `paru` are extremely powerful CLI tools, they come with certain friction points when managing packages:
 
-1. **Information Fragmentation:** Checking dependencies, licenses, download sizes, and descriptions of multiple packages requires running multiple commands. `pkgtui` puts all details in a clean, split-pane layout at a single glance.
-2. **Interactive Live Search:** Typing CLI search terms repeatedly can be slow. `pkgtui` features dynamic, real-time filtering as you type, letting you narrow down results instantly.
+1. **Information Fragmentation:** Checking dependencies, licenses, download sizes, and descriptions of multiple packages requires running multiple commands. `pkgman` puts all details in a clean, split-pane layout at a single glance.
+2. **Interactive Live Search:** Typing CLI search terms repeatedly can be slow. `pkgman` features dynamic, real-time filtering as you type, letting you narrow down results instantly.
 3. **Batch Actions:** Instead of installing packages one by one, you can scroll through the list, mark multiple packages with `[Space]`, and batch-install or remove them.
-4. **Safety & Script Inspection:** When installing packages or viewing source code, you sometimes want to verify script files or curl homepage contents. `pkgtui` includes built-in asynchronous cURL retrieval and safe custom script previews with validation overlays.
+4. **Safety & Script Inspection:** When installing packages or viewing source code, you sometimes want to verify script files or curl homepage contents. `pkgman` includes built-in asynchronous cURL retrieval and safe custom script previews with validation overlays.
 5. **In-TUI Package Operations:** All password prompt entries (`sudo`) and installation logs are handled directly inside the TUI in a real-time console overlay with automatic database refreshes upon transaction completions.
 6. **Blazing Fast & Lightweight:** Written in **Rust** using the high-performance **Ratatui** library, providing instantaneous startup times, extremely fast database parsing (~360,000 lines of pacman DB parsed in milliseconds), and a negligible memory footprint.
 
@@ -41,7 +41,7 @@ While Arch Linux's `pacman` and AUR helpers like `yay` or `paru` are extremely p
 
 ## 📋 Prerequisites
 
-To run `pkgtui`, make sure you have:
+To run `pkgman`, make sure you have:
 - **Arch Linux** (or any Arch-based distribution)
 - **Rust Toolchain** (`cargo`, `rustc` - to compile from source)
 - **pacman** (standard package manager)
@@ -54,7 +54,7 @@ To run `pkgtui`, make sure you have:
 
 ### ⚡ Optimization Flags (Fastest Runtime)
 
-To get the absolute best performance out of `pkgtui`, you can configure Cargo to compile with link-time optimization (LTO) and aggressive optimizations. Add the following to your `Cargo.toml` if you wish to tune the binary size and speed:
+To get the absolute best performance out of `pkgman`, you can configure Cargo to compile with link-time optimization (LTO) and aggressive optimizations. Add the following to your `Cargo.toml` if you wish to tune the binary size and speed:
 
 ```toml
 [profile.release]
@@ -78,10 +78,10 @@ cargo build --release
 mkdir -p ~/.local/bin
 
 # 4. Copy the compiled binary to your path
-cp target/release/pkgtui ~/.local/bin/pkgtui
+cp target/release/pkgman ~/.local/bin/pkgman
 
 # 5. Make sure the binary is executable
-chmod +x ~/.local/bin/pkgtui
+chmod +x ~/.local/bin/pkgman
 ```
 
 > [!TIP]
@@ -92,26 +92,26 @@ chmod +x ~/.local/bin/pkgtui
 
 ## 🎛️ Hyprland Shortcut Setup
 
-When running Hyprland, environment variables like `$PATH` might not be loaded in the same way they are in your interactive shell session. Therefore, using the **absolute path** to the `pkgtui` executable is highly recommended.
+When running Hyprland, environment variables like `$PATH` might not be loaded in the same way they are in your interactive shell session. Therefore, using the **absolute path** to the `pkgman` executable is highly recommended.
 
 Add one of the following keybindings to your Hyprland configuration (typically at `~/.config/hypr/hyprland.conf`):
 
 ### Using Kitty (Recommended)
 ```ini
-# Open pkgtui in kitty using Super + P
-bind = SUPER, P, exec, kitty sh -c "$HOME/.local/bin/pkgtui"
+# Open pkgman in kitty using Super + P
+bind = SUPER, P, exec, kitty sh -c "$HOME/.local/bin/pkgman"
 ```
 
 ### Using Alacritty
 ```ini
-# Open pkgtui in alacritty using Super + P
-bind = SUPER, P, exec, alacritty -e sh -c "$HOME/.local/bin/pkgtui"
+# Open pkgman in alacritty using Super + P
+bind = SUPER, P, exec, alacritty -e sh -c "$HOME/.local/bin/pkgman"
 ```
 
 ### Using Foot
 ```ini
-# Open pkgtui in foot using Super + P
-bind = SUPER, P, exec, foot sh -c "$HOME/.local/bin/pkgtui"
+# Open pkgman in foot using Super + P
+bind = SUPER, P, exec, foot sh -c "$HOME/.local/bin/pkgman"
 ```
 
 After modifying the configuration file, reload Hyprland to apply the changes immediately:
@@ -123,7 +123,7 @@ hyprctl reload
 
 ## ⚡ AUR Completion Cache Synchronization
 
-To achieve sub-10ms listing of the 114,000+ packages in the AUR on startup, `pkgtui` reads completion cache files generated by your AUR helper. 
+To achieve sub-10ms listing of the 114,000+ packages in the AUR on startup, `pkgman` reads completion cache files generated by your AUR helper. 
 
 - **Yay Cache Location:** `~/.cache/yay/completion.cache`
 - **Paru Cache Location:** `~/.cache/paru/completion.cache`
@@ -136,13 +136,13 @@ yay -Sl aur > /dev/null
 # For paru users
 paru -Sl aur > /dev/null
 ```
-Once the file is generated, `pkgtui` will load it instantly on subsequent launches.
+Once the file is generated, `pkgman` will load it instantly on subsequent launches.
 
 ---
 
 ## ⌨️ Keyboard Reference
 
-Press `?` inside `pkgtui` at any time to pull up the interactive keyboard shortcut reference overlay:
+Press `?` inside `pkgman` at any time to pull up the interactive keyboard shortcut reference overlay:
 
 | Key | Action |
 |---|---|
