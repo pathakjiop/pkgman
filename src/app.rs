@@ -280,13 +280,7 @@ pub fn get_disk_free() -> String {
 }
 
 pub fn load_packages_sync() -> Vec<Package> {
-    let helper = if which("paru") {
-        Some("paru")
-    } else if which("yay") {
-        Some("yay")
-    } else {
-        None
-    };
+    let helper = crate::config::aur_helper();
 
     let output = Command::new("pacman")
         .arg("-Si")

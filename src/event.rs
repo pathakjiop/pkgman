@@ -7,6 +7,7 @@ pub enum AppEvent {
     ScriptFetched(String, String), // url, content
     ConsoleChunk(String),
     ConsoleFinished(bool),
+    LoadingDone, // clear the loading spinner without altering the status message
     Resize,
     AurDetailsLoaded(crate::app::Package),
 }

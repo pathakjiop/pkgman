@@ -386,20 +386,56 @@ fn render_empty_detail(f: &mut Frame, area: Rect) {
     f.render_widget(txt, area);
 }
 
+/// Render a `label  value` detail row, word-wrapping the value with a hanging
+/// indent so continuation lines align under the value column instead of col 0.
+fn wrap_field(label: &str, value: &str, vc: Style, width: usize, kw: usize) -> Vec<Line<'static>> {
+    let lbl = Style::default().fg(Color::DarkGray);
+    let indent = 2 + kw + 2; // leading + label + separator
+    let avail = width.saturating_sub(indent).max(1);
+
+    let mut rows: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    for word in value.split_whitespace() {
+        if cur.is_empty() {
+            cur.push_str(word);
+        } else if cur.chars().count() + 1 + word.chars().count() <= avail {
+            cur.push(' ');
+            cur.push_str(word);
+        } else {
+            rows.push(std::mem::take(&mut cur));
+            cur.push_str(word);
+        }
+    }
+    if !cur.is_empty() {
+        rows.push(cur);
+    }
+    if rows.is_empty() {
+        rows.push(String::new());
+    }
+
+    rows.into_iter()
+        .enumerate()
+        .map(|(i, row)| {
+            let prefix = if i == 0 {
+                format!("  {:<width$}  ", label, width = kw)
+            } else {
+                " ".repeat(indent)
+            };
+            Line::from(vec![Span::styled(prefix, lbl), Span::styled(row, vc)])
+        })
+        .collect()
+}
+
 fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scroll: u16) {
     let kw = 16; // label width
     let sep = Style::default().fg(Color::DarkGray);
-    let lbl = Style::default().fg(Color::DarkGray);
     let val = Style::default().fg(Color::White);
     let hdr = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
 
+    let inner_w = area.width as usize;
     macro_rules! field {
         ($lines:expr, $label:expr, $value:expr, $vc:expr) => {
-            $lines.push(Line::from(vec![
-                Span::styled(format!("  {:<width$}", $label, width = kw), lbl),
-                Span::styled("  ", sep),
-                Span::styled($value.as_str(), $vc),
-            ]));
+            $lines.extend(wrap_field($label, $value.as_str(), Style::from($vc), inner_w, kw));
         };
     }
 

@@ -1,4 +1,5 @@
 mod app;
+mod config;
 mod event;
 mod handlers;
 mod ui;
@@ -105,7 +106,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     if !app.view.is_empty() && app.cursor < app.view.len() {
                         let idx = app.view[app.cursor];
                         if idx < app.pkgs.len() {
-                            if app.pkgs[idx].repo == "aur" && app.pkgs[idx].desc == "AUR Package" {
+                            if config::cfg().aur && app.pkgs[idx].repo == "aur" && app.pkgs[idx].desc == "AUR Package" {
                                 if app.last_cursor_change.elapsed() > Duration::from_millis(300) {
                                     let name = app.pkgs[idx].name.clone();
                                     // Mark as fetching so we don't spawn multiple tasks
@@ -139,6 +140,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
                 AppEvent::Message(msg, secs, keep) => {
                     app.set_msg(&msg, secs, keep);
+                }
+                AppEvent::LoadingDone => {
+                    app.is_loading = false;
                 }
                 AppEvent::ScriptFetched(url, content) => {
                     app.script_preview = Some((url, content));

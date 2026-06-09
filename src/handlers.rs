@@ -58,13 +58,7 @@ pub fn trigger_action_in_tui(
             }
         }
 
-        let helper = if which("paru") {
-            "paru"
-        } else if which("yay") {
-            "yay"
-        } else {
-            "pacman"
-        };
+        let helper = crate::config::aur_helper().unwrap_or("pacman");
 
         let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         let mut cmd = match action {
@@ -177,12 +171,8 @@ pub fn trigger_action_in_tui(
 
 pub fn trigger_aur_details_fetch(name: String, tx: mpsc::UnboundedSender<AppEvent>) {
     tokio::spawn(async move {
-        let helper = if which("paru") {
-            "paru"
-        } else {
-            "yay"
-        };
-        
+        let Some(helper) = crate::config::aur_helper() else { return };
+
         let output = tokio::process::Command::new(helper)
             .args(&["-Si", &name])
             .output()
@@ -241,8 +231,13 @@ pub fn trigger_db_reload(tx: mpsc::UnboundedSender<AppEvent>) {
         let pkgs = tokio::task::spawn_blocking(crate::app::load_packages_sync).await.unwrap_or_default();
         let _ = tx.send(AppEvent::DbLoaded(pkgs));
         
-        let _ = tx.send(AppEvent::Message("Loading AUR DB...".to_string(), 0, true));
-        let aur = tokio::task::spawn_blocking(crate::app::load_aur_sync).await.unwrap_or_default();
+        // Always send AurLoaded (empty when AUR is off) so the spinner clears.
+        let aur = if crate::config::cfg().aur {
+            let _ = tx.send(AppEvent::Message("Loading AUR DB...".to_string(), 0, true));
+            tokio::task::spawn_blocking(crate::app::load_aur_sync).await.unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let _ = tx.send(AppEvent::AurLoaded(aur));
     });
 }
@@ -287,33 +282,23 @@ pub fn trigger_fetch_script(url: String, tx: mpsc::UnboundedSender<AppEvent>) {
     });
 }
 
-fn which(cmd: &str) -> bool {
-    Command::new("which")
-        .arg(cmd)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
 pub fn trigger_aur_search(query: String, tx: mpsc::UnboundedSender<AppEvent>) {
     tokio::spawn(async move {
         let _ = tx.send(AppEvent::Message(format!("Searching AUR for '{}'...", query), 0, true));
-        let helper = if which("paru") {
-            Some("paru")
-        } else if which("yay") {
-            Some("yay")
-        } else {
-            None
-        };
-        
-        let helper = match helper {
+        let helper = match crate::config::aur_helper() {
             Some(h) => h,
             None => {
-                let _ = tx.send(AppEvent::Message("No AUR helper (yay/paru) found.".to_string(), 3, false));
+                let msg = if crate::config::cfg().aur {
+                    "No AUR helper (yay/paru) found."
+                } else {
+                    "AUR features disabled in config."
+                };
+                let _ = tx.send(AppEvent::Message(msg.to_string(), 3, false));
+                let _ = tx.send(AppEvent::LoadingDone);
                 return;
             }
         };
-        
+
         let output = tokio::process::Command::new(helper)
             .args(&["-Ss", "--aur", &query])
             .output()
@@ -378,6 +363,7 @@ pub fn trigger_aur_search(query: String, tx: mpsc::UnboundedSender<AppEvent>) {
             }
             _ => {
                 let _ = tx.send(AppEvent::Message("AUR search failed.".to_string(), 3, false));
+                let _ = tx.send(AppEvent::LoadingDone);
             }
         }
     });
@@ -530,7 +516,7 @@ pub fn handle_key(key: KeyEvent, app: &mut App, tx: &mpsc::UnboundedSender<AppEv
             KeyCode::Enter => {
                 app.search_mode = false;
                 let q = app.query.trim().to_string();
-                if !q.is_empty() {
+                if !q.is_empty() && crate::config::cfg().aur {
                     app.is_loading = true;
                     trigger_aur_search(q, tx.clone());
                 }
