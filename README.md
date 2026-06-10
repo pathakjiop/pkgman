@@ -90,37 +90,6 @@ chmod +x ~/.local/bin/pkgman
 
 ---
 
-## 🎛️ Hyprland Shortcut Setup
-
-When running Hyprland, environment variables like `$PATH` might not be loaded in the same way they are in your interactive shell session. Therefore, using the **absolute path** to the `pkgman` executable is highly recommended.
-
-Add one of the following keybindings to your Hyprland configuration (typically at `~/.config/hypr/hyprland.conf`):
-
-### Using Kitty (Recommended)
-```ini
-# Open pkgman in kitty using Super + P
-bind = SUPER, P, exec, kitty sh -c "$HOME/.local/bin/pkgman"
-```
-
-### Using Alacritty
-```ini
-# Open pkgman in alacritty using Super + P
-bind = SUPER, P, exec, alacritty -e sh -c "$HOME/.local/bin/pkgman"
-```
-
-### Using Foot
-```ini
-# Open pkgman in foot using Super + P
-bind = SUPER, P, exec, foot sh -c "$HOME/.local/bin/pkgman"
-```
-
-After modifying the configuration file, reload Hyprland to apply the changes immediately:
-```bash
-hyprctl reload
-```
-
----
-
 ## 🔧 Configuration
 
 `pkgman` reads a config file from `$XDG_CONFIG_HOME/pkgman/config.toml` (falling back to `~/.config/pkgman/config.toml`). On first run the file is created automatically: `aur` is seeded to `false` when no `yay`/`paru` is installed, `true` otherwise. Once the file exists it is never overwritten, so any manual edit (including forcing `aur = false` while a helper is installed) is always respected. Unknown or missing keys fall back to defaults.
