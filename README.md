@@ -65,7 +65,6 @@ Add to your `Cargo.toml` for maximum runtime performance:
 
 ```toml
 [profile.release]
-opt-level = 3
 lto = true
 codegen-units = 1
 panic = "abort"
