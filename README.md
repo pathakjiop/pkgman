@@ -1,60 +1,111 @@
-# 📦 pkgman
+<div align="center">
 
-> A High-Performance, Keyboard-Driven Package Manager Terminal User Interface (TUI) for Arch Linux.
+```
+██████╗ ██╗  ██╗ ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗
+██╔══██╗██║ ██╔╝██╔════╝ ████╗ ████║██╔══██╗████╗  ██║
+██████╔╝█████╔╝ ██║  ███╗██╔████╔██║███████║██╔██╗ ██║
+██╔═══╝ ██╔═██╗ ██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║
+██║     ██║  ██╗╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║
+╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
+```
 
-`pkgman` is a terminal wrapper that makes searching, selecting, installing, removing, and managing packages from official Arch Linux repositories and the AUR (via `yay`/`paru`) visually intuitive, lightning-fast, and distraction-free.
+**A high-performance, keyboard-driven TUI package manager for Arch Linux**  
+Built with Rust · Powered by Ratatui · AUR-aware
 
----
+[![Rust](https://img.shields.io/badge/built_with-Rust-ce422b?style=flat-square&logo=rust)](https://www.rust-lang.org/)
+[![Arch Linux](https://img.shields.io/badge/platform-Arch_Linux-1793d1?style=flat-square&logo=archlinux&logoColor=white)](https://archlinux.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/pathakjiop/pkgman?style=flat-square&color=facc15)](https://github.com/pathakjiop/pkgman/stargazers)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-a78bfa?style=flat-square)](CONTRIBUTING.md)
 
-## 📸 Preview
+<br/>
 
-![pkgman-ultra Interface](assets/preview.png)
+![pkgman preview](assets/preview.png)
 
----
-
-## ❓ Why Is It Needed?
-
-While Arch Linux's `pacman` and AUR helpers like `yay` or `paru` are extremely powerful CLI tools, they come with certain friction points when managing packages:
-
-1. **Information Fragmentation:** Checking dependencies, licenses, download sizes, and descriptions of multiple packages requires running multiple commands. `pkgman` puts all details in a clean, split-pane layout at a single glance.
-2. **Interactive Live Search:** Typing CLI search terms repeatedly can be slow. `pkgman` features dynamic, real-time filtering as you type, letting you narrow down results instantly.
-3. **Batch Actions:** Instead of installing packages one by one, you can scroll through the list, mark multiple packages with `[Space]`, and batch-install or remove them.
-4. **Safety & Script Inspection:** When installing packages or viewing source code, you sometimes want to verify script files or curl homepage contents. `pkgman` includes built-in asynchronous cURL retrieval and safe custom script previews with validation overlays.
-5. **In-TUI Package Operations:** All password prompt entries (`sudo`) and installation logs are handled directly inside the TUI in a real-time console overlay with automatic database refreshes upon transaction completions.
-6. **Blazing Fast & Lightweight:** Written in **Rust** using the high-performance **Ratatui** library, providing instantaneous startup times, extremely fast database parsing (~360,000 lines of pacman DB parsed in milliseconds), and a negligible memory footprint.
-
----
-
-## 🚀 Key Features
-
-- **Split-Pane Dashboard:** Package listing on the left, full metadata details in the middle, and extra context/maintainer info on the right.
-- **Incremental Multi-stage Loading:** Boots up in under 50ms by loading installed packages synchronously, streaming official repositories in the background, and finally loading the AUR completion cache.
-- **Side-by-side Load Status Dashboard:** Shows live status indicators in the header (`Installed: ✔  Repos: ⠋  AUR: ◌`) so you can visually track load progress in real-time.
-- **Repository Priority Sorting:** Orders packages by repository priority (`core` > `extra` > `multilib` > others > `aur` > `local`) first, then alphabetically by name. Official packages take priority, and AUR packages do not flood the main view.
-- **AUR Support:** Integrates with `yay`/`paru` to search and install AUR packages asynchronously.
-- **Instant AUR Loading (<10ms):** Automatically reads and parses local shell completion caches for the AUR to instantly populate all 114,000+ packages on startup.
-- **Lazy Details Fetching:** AUR package details (dependencies, licenses, descriptions) are lazily fetched in the background with a 300ms scrolling debounce.
-- **Multi-Tab Filtering:** Effortlessly switch tabs (All, Installed, Updates, Core, Extra, Multilib, AUR) with keys `1`-`7`.
-- **Dynamic Sorting:** Cycle sort options by Name, Repository, Download Size, and Installed status (using the `s` key).
+</div>
 
 ---
 
-## 📋 Prerequisites
+## The problem with `pacman`
 
-To run `pkgman`, make sure you have:
-- **Arch Linux** (or any Arch-based distribution)
-- **Rust Toolchain** (`cargo`, `rustc` - to compile from source)
-- **pacman** (standard package manager)
-- **yay** or **paru** (optional, for AUR query & install capability)
-- **curl** (optional, for website downloads and custom scripts)
+`pacman` and AUR helpers like `yay`/`paru` are powerful — but managing packages through them is fragmented, repetitive, and blind to context. You run one command to search, another to inspect, another to install. You lose your place. You repeat yourself.
+
+`pkgman` collapses all of that into a single, persistent TUI: live search, full metadata at a glance, batch operations, and real-time install logs — all without leaving the terminal.
 
 ---
 
-## ⚙️ Compilation & Installation
+## Features
 
-### ⚡ Optimization Flags (Fastest Runtime)
+### ⚡ Performance-first architecture
 
-To get the absolute best performance out of `pkgman`, you can configure Cargo to compile with link-time optimization (LTO) and aggressive optimizations. Add the following to your `Cargo.toml` if you wish to tune the binary size and speed:
+- **< 50ms startup** — installed packages load synchronously; repos and AUR stream in the background
+- **< 10ms AUR listing** — reads `yay`/`paru` shell completion caches directly, no subprocess overhead
+- **~360,000 lines of pacman DB** parsed in milliseconds
+- Zero-bloat binary via Rust + Ratatui — negligible memory footprint
+
+### 🖥️ Interface
+
+- **Split-pane layout** — package list · full metadata · maintainer/context info, all visible at once
+- **Live header indicators** — `Installed: ✔  Repos: ⠋  AUR: ◌` tracks background load progress in real-time
+- **7 filter tabs** — `All`, `Installed`, `Updates`, `Core`, `Extra`, `Multilib`, `AUR` (keys `1`–`7`)
+- **Dynamic sort** — cycle by Name, Repository, Download Size, or Install status
+
+### 📦 Package operations
+
+- **Batch install/remove** — mark multiple packages with `Space`, act on all at once
+- **In-TUI sudo prompts & install logs** — full console overlay with auto DB refresh on completion
+- **System upgrade** — `pacman -Syu` directly from the TUI
+- **Async DB reload** — refresh databases without quitting
+
+### 🔍 Search & discovery
+
+- **Incremental live search** — results filter as you type, no enter required
+- **Lazy AUR detail fetching** — descriptions, deps, and licenses load in the background with 300ms debounce
+- **Repository priority sorting** — `core > extra > multilib > others > aur > local`; AUR never floods the main view
+
+### 🛡️ Safety
+
+- **Script inspection** — securely fetch and preview `curl | bash` scripts before executing
+- **Homepage cURL** — async-fetch the official homepage of any selected package
+
+---
+
+## Installation
+
+### Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| Arch Linux (or Arch-based distro) | Manjaro, EndeavourOS, etc. work fine |
+| Rust toolchain (`cargo`, `rustc`) | Install via [rustup.rs](https://rustup.rs) |
+| `pacman` | Ships with Arch — you already have it |
+| `yay` or `paru` *(optional)* | Required for AUR operations |
+| `curl` *(optional)* | Required for homepage fetch and script preview |
+
+### Build from source
+
+```bash
+# Clone the repository
+git clone https://github.com/pathakjiop/pkgman.git
+cd pkgman
+
+# Build an optimized release binary
+cargo build --release
+
+# Install to your local bin
+mkdir -p ~/.local/bin
+cp target/release/pkgman ~/.local/bin/pkgman
+chmod +x ~/.local/bin/pkgman
+```
+
+> **Ensure `~/.local/bin` is in your `$PATH`** — add this to your `~/.bashrc` or `~/.zshrc`:
+> ```bash
+> export PATH="$HOME/.local/bin:$PATH"
+> ```
+
+### Optimized release profile *(optional but recommended)*
+
+Add to your `Cargo.toml` for maximum runtime performance:
 
 ```toml
 [profile.release]
@@ -65,40 +116,19 @@ panic = "abort"
 strip = true
 ```
 
-### 🛠️ Compilation Commands
-
-```bash
-# 1. Clone or navigate to the workspace directory
-cd /path/to/pkgman
-
-# 2. Build the optimized release binary
-cargo build --release
-
-# 3. Create the local binary folder if it doesn't exist
-mkdir -p ~/.local/bin
-
-# 4. Copy the compiled binary to your path
-cp target/release/pkgman ~/.local/bin/pkgman
-
-# 5. Make sure the binary is executable
-chmod +x ~/.local/bin/pkgman
-```
-
-> [!TIP]
-> Ensure `~/.local/bin` is in your environment's `$PATH` variable by adding this line to your shell configuration (`~/.bashrc` or `~/.zshrc`):
-> `export PATH="$HOME/.local/bin:$PATH"`
-
 ---
 
-## 🔧 Configuration
+## Configuration
 
-`pkgman` reads a config file from `$XDG_CONFIG_HOME/pkgman/config.toml` (falling back to `~/.config/pkgman/config.toml`). On first run the file is created automatically: `aur` is seeded to `false` when no `yay`/`paru` is installed, `true` otherwise. Once the file exists it is never overwritten, so any manual edit (including forcing `aur = false` while a helper is installed) is always respected. Unknown or missing keys fall back to defaults.
+`pkgman` reads its config from `$XDG_CONFIG_HOME/pkgman/config.toml` (defaults to `~/.config/pkgman/config.toml`).
 
-| Key   | Default | Effect |
-| ----- | ------- | ------ |
-| `aur` | `true`  | When `false`, disables all AUR features: the AUR DB is not loaded, AUR search returns a disabled notice, background detail fetches are skipped, and install/update use `pacman` directly instead of `yay`/`paru`. |
+The file is **created automatically on first run** — `aur` is seeded to `true` if `yay` or `paru` is found, `false` otherwise. Once it exists, it is **never overwritten**. Manual edits are always respected.
 
-Example: pacman-only mode, no AUR helpers invoked.
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `aur` | bool | `true` | When `false`: AUR DB skipped, searches return a disabled notice, installs/updates route through `pacman` only |
+
+**Example — pacman-only mode:**
 ```toml
 # ~/.config/pkgman/config.toml
 aur = false
@@ -106,46 +136,159 @@ aur = false
 
 ---
 
-## ⚡ AUR Completion Cache Synchronization
+## AUR cache warm-up
 
-To achieve sub-10ms listing of the 114,000+ packages in the AUR on startup, `pkgman` reads completion cache files generated by your AUR helper. 
+`pkgman` loads 114,000+ AUR packages in under 10ms by reading your AUR helper's shell completion cache directly:
 
-- **Yay Cache Location:** `~/.cache/yay/completion.cache`
-- **Paru Cache Location:** `~/.cache/paru/completion.cache`
+| Helper | Cache path |
+|--------|-----------|
+| `yay` | `~/.cache/yay/completion.cache` |
+| `paru` | `~/.cache/paru/completion.cache` |
 
-If the TUI does not list AUR packages or shows a message indicating a fallback load, warm up your AUR helper's cache by running a simple operation or triggering a search:
+If AUR packages aren't appearing, warm up the cache first:
+
 ```bash
-# For yay users
+# yay
 yay -Sl aur > /dev/null
 
-# For paru users
+# paru
 paru -Sl aur > /dev/null
 ```
-Once the file is generated, `pkgman` will load it instantly on subsequent launches.
 
 ---
 
-## ⌨️ Keyboard Reference
+## Keyboard reference
 
-Press `?` inside `pkgman` at any time to pull up the interactive keyboard shortcut reference overlay:
+> Press `?` inside pkgman at any time to open the interactive help overlay.
 
 | Key | Action |
-|---|---|
-| **`↑` / `k`** | Move cursor up in package list |
-| **`↓` / `j`** | Move cursor down in package list |
-| **`PgUp` / `PgDn`** | Scroll full page in package list |
-| **`J` / `K`** | Scroll details pane (for packages with long descriptions/dependencies) |
-| **`1` - `7`** | Switch direct filter tabs (All, Installed, Updates, etc.) |
-| **`/`** | Activate Live Search mode (Ctrl+X clears query) |
-| **`Esc`** | Exit search mode / Cancel overlay / Close logs |
-| **`Space`** | Select/deselect multiple packages for batch actions |
-| **`i`** | Install selected package(s) inside TUI |
-| **`r`** | Uninstall selected package(s) inside TUI |
-| **`u`** | Run system upgrade (`-Syu`) inside TUI |
-| **`d`** | Asynchronously download/cURL the official homepage of the selected package |
-| **`E` (Shift+E)** | Securely fetch and preview custom shell scripts (`curl | bash`) |
-| **`R` (Shift+R)** | Asynchronously reload package databases |
-| **`s`** | Cycle sorting mode (Name, Repo, Size, Installed status) |
-| **`?`** | Toggle Help Overlay |
-| **`q`** | Quit application |
+|-----|--------|
+| `↑` / `k` | Move cursor up |
+| `↓` / `j` | Move cursor down |
+| `PgUp` / `PgDn` | Scroll full page |
+| `J` / `K` | Scroll details pane |
+| `1` – `7` | Switch filter tabs |
+| `/` | Enter live search mode |
+| `Ctrl+X` | Clear search query |
+| `Esc` | Exit search / close overlay |
+| `Space` | Toggle package selection |
+| `i` | Install selected package(s) |
+| `r` | Remove selected package(s) |
+| `u` | System upgrade (`-Syu`) |
+| `d` | Fetch package homepage (async) |
+| `E` | Preview shell script safely |
+| `R` | Reload package databases (async) |
+| `s` | Cycle sort mode |
+| `?` | Toggle help overlay |
+| `q` | Quit |
 
+---
+
+## Theming
+
+> 🚧 **Work in progress** — theming support is actively being developed.
+
+A full theming system is planned that will allow full control over colors, pane styles, and status indicator glyphs via the config file. Stay tuned — contributions welcome (see below).
+
+---
+
+## Contributing
+
+Contributions are very welcome. To keep things clean and mergeable, please follow these conventions.
+
+### Branch naming
+
+All work branches must follow this pattern:
+
+```
+<type>/<short-description>
+```
+
+| Type | When to use |
+|------|-------------|
+| `feat/` | New feature or capability |
+| `fix/` | Bug fix |
+| `theme/` | Theming-related work |
+| `docs/` | Documentation only |
+| `refactor/` | Code restructure, no behavior change |
+| `perf/` | Performance improvement |
+| `chore/` | Tooling, CI, dependencies |
+| `test/` | Tests only |
+
+**Examples:**
+```
+feat/theme-engine
+fix/aur-cache-fallback
+docs/contributing-guide
+refactor/event-loop-cleanup
+theme/catppuccin-mocha
+```
+
+> ⚠️ PRs from branches that don't match this pattern will be asked to rename before review.
+
+### Workflow
+
+```bash
+# 1. Fork the repo and clone your fork
+git clone https://github.com/<your-username>/pkgman.git
+cd pkgman
+
+# 2. Create your branch from main
+git checkout -b feat/your-feature-name
+
+# 3. Make your changes, commit with a clear message
+git commit -m "feat: add catppuccin theme support"
+
+# 4. Push and open a PR against main
+git push origin feat/your-feature-name
+```
+
+### Commit message format
+
+Follow the conventional commit style:
+
+```
+<type>: <short imperative description>
+
+Optional longer body explaining the why, not the what.
+```
+
+### PR checklist
+
+Before opening a PR, make sure:
+
+- [ ] `cargo build --release` succeeds with no warnings
+- [ ] Your branch name follows the naming convention above
+- [ ] Changes are scoped — one concern per PR
+- [ ] You've updated documentation if behavior changed
+- [ ] For new features, a brief description is in the PR body
+
+### Good first issues
+
+Look for issues tagged [`good first issue`](https://github.com/pathakjiop/pkgman/issues?q=label%3A"good+first+issue") — these are intentionally scoped for newcomers.
+
+---
+
+## Roadmap
+
+- [ ] **Theming engine** — full color/style customization via `config.toml`
+- [ ] **Built-in theme presets** — Catppuccin, Nord, Gruvbox, Tokyo Night
+- [ ] **Mouse support** — optional click-to-select
+- [ ] **AUR comment viewer** — inline AUR comments and flag status
+- [ ] **Dependency tree visualizer** — graphical dep tree in the details pane
+- [ ] **AUR PKGBUILD diff viewer** — diff updates before installing
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+Made with ♥ on Arch Linux  
+[⭐ Star this repo](https://github.com/pathakjiop/pkgman) · [🐛 Report a bug](https://github.com/pathakjiop/pkgman/issues/new?template=bug_report.md) · [💡 Request a feature](https://github.com/pathakjiop/pkgman/issues/new?template=feature_request.md)
+
+</div>
