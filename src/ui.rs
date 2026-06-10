@@ -30,6 +30,7 @@ const HELP_LINES: &[(&str, &str)] = &[
     ("E (shift)", "Run custom curl script"),
     ("R (shift)", "Reload packages"),
     ("s", "Cycle sort mode"),
+    ("t", "Theme Selector / Builder"),
     ("?", "Toggle help"),
     ("q", "Quit"),
 ];
@@ -38,23 +39,23 @@ const SPINNER: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧
 
 // ── colour helpers ──────────────────────────────────────────────────
 
-fn repo_color(repo: &str) -> Color {
+fn repo_color(repo: &str, theme: &crate::theme::Theme) -> Color {
     match repo {
-        "core" => Color::Blue,
-        "extra" => Color::Cyan,
-        "community" => Color::Green,
-        "aur" => Color::Magenta,
-        _ => Color::DarkGray,
+        "core" => theme.accent,
+        "extra" => theme.selected,
+        "community" => theme.success,
+        "aur" => theme.accent,
+        _ => theme.border,
     }
 }
 
-fn status_icon(installed: bool, upgradable: bool) -> Span<'static> {
+fn status_icon(installed: bool, upgradable: bool, theme: &crate::theme::Theme) -> Span<'static> {
     if upgradable {
-        Span::styled(" ↑", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        Span::styled(" ↑", Style::default().fg(theme.warning).add_modifier(Modifier::BOLD))
     } else if installed {
-        Span::styled(" ✔", Style::default().fg(Color::Green))
+        Span::styled(" ✔", Style::default().fg(theme.success))
     } else {
-        Span::styled(" ○", Style::default().fg(Color::DarkGray))
+        Span::styled(" ○", Style::default().fg(theme.border))
     }
 }
 
@@ -76,7 +77,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
 
     render_header(f, app, outer[0]);
     render_tab_bar(f, app, outer[1]);
-    render_divider(f, outer[2]);
+    render_divider(f, app, outer[2]);
     render_main(f, app, outer[3]);
     render_footer(f, app, outer[4]);
 
@@ -97,6 +98,9 @@ pub fn render(f: &mut Frame, app: &mut App) {
     }
     if app.console_mode {
         render_console_overlay(f, size, app);
+    }
+    if app.theme_builder_open {
+        render_theme_builder_overlay(f, size, app);
     }
 }
 
@@ -119,13 +123,13 @@ fn render_header(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let left = Line::from(vec![
-        Span::styled(spin, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled(spin, Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD)),
         Span::styled(
             "PKGMAN",
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
-        Span::styled("Arch Package Manager", Style::default().fg(Color::DarkGray)),
+        Span::styled(" │ ", Style::default().fg(app.theme.border)),
+        Span::styled("Arch Package Manager", Style::default().fg(app.theme.border)),
     ]);
 
     let stats = format!(
@@ -143,7 +147,7 @@ fn render_header(f: &mut Frame, app: &App, area: Rect) {
             height: 1,
         };
         f.render_widget(
-            Paragraph::new(stats.as_str()).style(Style::default().fg(Color::DarkGray)),
+            Paragraph::new(stats.as_str()).style(Style::default().fg(app.theme.border)),
             r,
         );
     }
@@ -172,11 +176,11 @@ fn render_tab_bar(f: &mut Frame, app: &App, area: Rect) {
 
         let style = if i == app.filter_idx {
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Cyan)
+                .fg(app.theme.highlight_fg)
+                .bg(app.theme.highlight_bg)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::White)
+            Style::default().fg(app.theme.foreground)
         };
 
         spans.push(Span::styled(label, style));
@@ -188,10 +192,10 @@ fn render_tab_bar(f: &mut Frame, app: &App, area: Rect) {
 
 // ── divider ─────────────────────────────────────────────────────────
 
-fn render_divider(f: &mut Frame, area: Rect) {
+fn render_divider(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(
         Paragraph::new("─".repeat(area.width as usize))
-            .style(Style::default().fg(Color::DarkGray)),
+            .style(Style::default().fg(app.theme.border)),
         area,
     );
 }
@@ -249,11 +253,11 @@ fn render_package_list(f: &mut Frame, app: &mut App, area: Rect) {
 
     // search prompt
     let search_style = if app.search_mode {
-        Style::default().fg(Color::Black).bg(Color::Cyan)
+        Style::default().fg(app.theme.highlight_fg).bg(app.theme.highlight_bg)
     } else if !app.query.is_empty() {
-        Style::default().fg(Color::Cyan)
+        Style::default().fg(app.theme.accent)
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(app.theme.border)
     };
 
     let search_txt = if app.query.is_empty() && !app.search_mode {
@@ -266,7 +270,7 @@ fn render_package_list(f: &mut Frame, app: &mut App, area: Rect) {
 
     f.render_widget(
         Paragraph::new("─".repeat(chunks[1].width as usize))
-            .style(Style::default().fg(Color::DarkGray)),
+            .style(Style::default().fg(app.theme.border)),
         chunks[1],
     );
 
@@ -281,15 +285,15 @@ fn render_package_list(f: &mut Frame, app: &mut App, area: Rect) {
         }
         let pkg = &app.pkgs[idx];
 
-        let icon = status_icon(pkg.installed, pkg.upgradable);
+        let icon = status_icon(pkg.installed, pkg.upgradable, &app.theme);
 
         let selected = app.selected.contains(&pkg.name);
         let name_style = if selected {
             Style::default()
-                .fg(Color::Yellow)
+                .fg(app.theme.selected)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::White)
+            Style::default().fg(app.theme.foreground)
         };
 
         // name + version badge  e.g.  "arianna [26.04.2-1]"
@@ -304,7 +308,7 @@ fn render_package_list(f: &mut Frame, app: &mut App, area: Rect) {
         let name_span = Span::styled(format!(" {}", name_display), name_style);
         let ver_span = Span::styled(
             format!(" {}", ver_str),
-            Style::default().fg(repo_color(&pkg.repo)),
+            Style::default().fg(repo_color(&pkg.repo, &app.theme)),
         );
 
         items.push(ListItem::new(Line::from(vec![icon, name_span, ver_span])));
@@ -324,9 +328,9 @@ fn render_package_list(f: &mut Frame, app: &mut App, area: Rect) {
         .title(" Packages ")
         .title_bottom(Line::from(Span::styled(
             visible_info,
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(app.theme.border),
         )))
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(Style::default().fg(app.theme.border));
 
     let mut state = ratatui::widgets::ListState::default();
     state.select(Some(app.cursor));
@@ -335,8 +339,8 @@ fn render_package_list(f: &mut Frame, app: &mut App, area: Rect) {
         .block(block)
         .highlight_style(
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Cyan)
+                .fg(app.theme.highlight_fg)
+                .bg(app.theme.highlight_bg)
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol(">>");
@@ -350,19 +354,19 @@ fn render_detail_panel(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(" Details ")
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(Style::default().fg(app.theme.border));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
 
     if app.view.is_empty() || app.cursor >= app.view.len() {
-        render_empty_detail(f, inner);
+        render_empty_detail(f, inner, &app.theme);
         return;
     }
 
     let pkg_idx = app.view[app.cursor];
     if pkg_idx >= app.pkgs.len() {
-        render_empty_detail(f, inner);
+        render_empty_detail(f, inner, &app.theme);
         return;
     }
     let pkg = &app.pkgs[pkg_idx];
@@ -376,20 +380,20 @@ fn render_detail_panel(f: &mut Frame, app: &App, area: Rect) {
         ])
         .split(inner);
 
-    render_detail_info(f, pkg, chunks[0], app.detail_top as u16);
-    render_action_buttons(f, pkg, chunks[1]);
+    render_detail_info(f, pkg, chunks[0], app.detail_top as u16, &app.theme);
+    render_action_buttons(f, pkg, chunks[1], &app.theme);
 }
 
-fn render_empty_detail(f: &mut Frame, area: Rect) {
+fn render_empty_detail(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
     let txt = Paragraph::new("\n  Select a package to view details")
-        .style(Style::default().fg(Color::DarkGray));
+        .style(Style::default().fg(theme.border));
     f.render_widget(txt, area);
 }
 
 /// Render a `label  value` detail row, word-wrapping the value with a hanging
 /// indent so continuation lines align under the value column instead of col 0.
-fn wrap_field(label: &str, value: &str, vc: Style, width: usize, kw: usize) -> Vec<Line<'static>> {
-    let lbl = Style::default().fg(Color::DarkGray);
+fn wrap_field(label: &str, value: &str, vc: Style, width: usize, kw: usize, theme: &crate::theme::Theme) -> Vec<Line<'static>> {
+    let lbl = Style::default().fg(theme.border);
     let indent = 2 + kw + 2; // leading + label + separator
     let avail = width.saturating_sub(indent).max(1);
 
@@ -426,16 +430,16 @@ fn wrap_field(label: &str, value: &str, vc: Style, width: usize, kw: usize) -> V
         .collect()
 }
 
-fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scroll: u16) {
+fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scroll: u16, theme: &crate::theme::Theme) {
     let kw = 16; // label width
-    let sep = Style::default().fg(Color::DarkGray);
-    let val = Style::default().fg(Color::White);
-    let hdr = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
+    let sep = Style::default().fg(theme.border);
+    let val = Style::default().fg(theme.foreground);
+    let hdr = Style::default().fg(theme.accent).add_modifier(Modifier::BOLD);
 
     let inner_w = area.width as usize;
     macro_rules! field {
         ($lines:expr, $label:expr, $value:expr, $vc:expr) => {
-            $lines.extend(wrap_field($label, $value.as_str(), Style::from($vc), inner_w, kw));
+            $lines.extend(wrap_field($label, $value.as_str(), Style::from($vc), inner_w, kw, theme));
         };
     }
 
@@ -450,17 +454,17 @@ fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scro
         "  NOT INSTALLED"
     };
     let status_col = if pkg.upgradable {
-        Color::Yellow
+        theme.warning
     } else if pkg.installed {
-        Color::Green
+        theme.success
     } else {
-        Color::DarkGray
+        theme.border
     };
 
     lines.push(Line::from(vec![
         Span::styled(
             format!(" {} ", pkg.name),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            Style::default().fg(theme.foreground).add_modifier(Modifier::BOLD),
         ),
         Span::styled(status_txt, Style::default().fg(status_col).add_modifier(Modifier::BOLD)),
     ]));
@@ -472,9 +476,9 @@ fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scro
         "  ──────────────────────────────────",
         sep,
     )));
-    field!(lines, "Repository", pkg.repo, repo_color(&pkg.repo));
+    field!(lines, "Repository", pkg.repo, repo_color(&pkg.repo, theme));
     field!(lines, "Name", pkg.name, val.clone());
-    field!(lines, "Version", pkg.version, Color::Cyan);
+    field!(lines, "Version", pkg.version, theme.accent);
     field!(lines, "Architecture", pkg.arch, val.clone());
     if pkg.groups != "None" && !pkg.groups.is_empty() {
         field!(lines, "Groups", pkg.groups, val.clone());
@@ -489,7 +493,7 @@ fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scro
     )));
     lines.push(Line::from(Span::styled(
         format!("  {}", pkg.desc),
-        Style::default().fg(Color::White),
+        Style::default().fg(theme.foreground),
     )));
     lines.push(Line::from(""));
 
@@ -501,10 +505,10 @@ fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scro
             sep,
         )));
         if pkg.dl_size != "None" && !pkg.dl_size.is_empty() {
-            field!(lines, "Download Size", pkg.dl_size, Color::Yellow);
+            field!(lines, "Download Size", pkg.dl_size, theme.selected);
         }
         if pkg.inst_size != "None" && !pkg.inst_size.is_empty() {
-            field!(lines, "Installed Size", pkg.inst_size, Color::Yellow);
+            field!(lines, "Installed Size", pkg.inst_size, theme.selected);
         }
         lines.push(Line::from(""));
     }
@@ -519,13 +523,13 @@ fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scro
         field!(lines, "Depends On", pkg.depends, val.clone());
     }
     if pkg.optdeps != "None" && !pkg.optdeps.is_empty() {
-        field!(lines, "Optional Deps", pkg.optdeps, Style::default().fg(Color::DarkGray));
+        field!(lines, "Optional Deps", pkg.optdeps, Style::default().fg(theme.border));
     }
     if pkg.req_by != "None" && !pkg.req_by.is_empty() {
         field!(lines, "Required By", pkg.req_by, val.clone());
     }
     if pkg.opt_for != "None" && !pkg.opt_for.is_empty() {
-        field!(lines, "Optional For", pkg.opt_for, Style::default().fg(Color::DarkGray));
+        field!(lines, "Optional For", pkg.opt_for, Style::default().fg(theme.border));
     }
     lines.push(Line::from(""));
 
@@ -547,19 +551,19 @@ fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scro
             field!(lines, "Provides", pkg.provides, val.clone());
         }
         if has_conflicts {
-            field!(lines, "Conflicts", pkg.conflicts, Color::Red);
+            field!(lines, "Conflicts", pkg.conflicts, theme.error);
         }
         if has_replaces {
             field!(lines, "Replaces", pkg.replaces, val.clone());
         }
         if has_licenses {
-            field!(lines, "Licenses", pkg.licenses, Style::default().fg(Color::DarkGray));
+            field!(lines, "Licenses", pkg.licenses, Style::default().fg(theme.border));
         }
         if has_build_date {
             field!(lines, "Build Date", pkg.build_date, val.clone());
         }
         if has_url {
-            field!(lines, "URL", pkg.url, Color::Cyan);
+            field!(lines, "URL", pkg.url, theme.accent);
         }
     }
 
@@ -572,7 +576,7 @@ fn render_detail_info(f: &mut Frame, pkg: &crate::app::Package, area: Rect, scro
 
 // ── action buttons ──────────────────────────────────────────────────
 
-fn render_action_buttons(f: &mut Frame, pkg: &crate::app::Package, area: Rect) {
+fn render_action_buttons(f: &mut Frame, pkg: &crate::app::Package, area: Rect, theme: &crate::theme::Theme) {
     let sep = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -583,7 +587,7 @@ fn render_action_buttons(f: &mut Frame, pkg: &crate::app::Package, area: Rect) {
 
     f.render_widget(
         Paragraph::new("─".repeat(sep[0].width as usize))
-            .style(Style::default().fg(Color::DarkGray)),
+            .style(Style::default().fg(theme.border)),
         sep[0],
     );
 
@@ -599,8 +603,8 @@ fn render_action_buttons(f: &mut Frame, pkg: &crate::app::Package, area: Rect) {
         .split(btn_area);
 
     let draw_btn = |f_: &mut Frame, r: Rect, label: &str, key: &str, col: Color, active: bool| {
-        let border_col = if active { col } else { Color::DarkGray };
-        let text_col = if active { col } else { Color::DarkGray };
+        let border_col = if active { col } else { theme.border };
+        let text_col = if active { col } else { theme.border };
         let txt = if active {
             format!("{}{}", key, label)
         } else {
@@ -628,10 +632,10 @@ fn render_action_buttons(f: &mut Frame, pkg: &crate::app::Package, area: Rect) {
     let can_update = pkg.upgradable;
     let can_remove = pkg.installed;
 
-    draw_btn(f, cols[0], " Install ", "[i]", Color::Cyan, can_install);
-    draw_btn(f, cols[1], " Update ↑ ", "[u]", Color::Yellow, can_update);
-    draw_btn(f, cols[2], " Uninstall ", "[r]", Color::Red, can_remove);
-    draw_btn(f, cols[3], " Curl WWW ", "[d]", Color::Cyan, true);
+    draw_btn(f, cols[0], " Install ", "[i]", theme.accent, can_install);
+    draw_btn(f, cols[1], " Update ↑ ", "[u]", theme.warning, can_update);
+    draw_btn(f, cols[2], " Uninstall ", "[r]", theme.error, can_remove);
+    draw_btn(f, cols[3], " Curl WWW ", "[d]", theme.accent, true);
 }
 
 // ── context panel ───────────────────────────────────────────────────
@@ -640,7 +644,7 @@ fn render_context_panel(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(" Context ")
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(Style::default().fg(app.theme.border));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -655,10 +659,10 @@ fn render_context_panel(f: &mut Frame, app: &App, area: Rect) {
     let pkg = &app.pkgs[pkg_idx];
 
     let hdr = Style::default()
-        .fg(Color::Cyan)
+        .fg(app.theme.accent)
         .add_modifier(Modifier::BOLD);
-    let lbl = Style::default().fg(Color::DarkGray);
-    let val = Style::default().fg(Color::White);
+    let lbl = Style::default().fg(app.theme.border);
+    let val = Style::default().fg(app.theme.foreground);
 
     let mut lines: Vec<Line> = Vec::new();
 
@@ -666,7 +670,7 @@ fn render_context_panel(f: &mut Frame, app: &App, area: Rect) {
     lines.push(Line::from(Span::styled(" QUICK INFO", hdr)));
     lines.push(Line::from(Span::styled(
         " ──────────────────────────",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(app.theme.border),
     )));
 
     macro_rules! row {
@@ -689,22 +693,22 @@ fn render_context_panel(f: &mut Frame, app: &App, area: Rect) {
     lines.push(Line::from(Span::styled(" LINKS", hdr)));
     lines.push(Line::from(Span::styled(
         " ──────────────────────────",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(app.theme.border),
     )));
 
     if !pkg.url.is_empty() && pkg.url != "None" {
         lines.push(Line::from(Span::styled(
             format!(" {}", pkg.url),
-            Style::default().fg(Color::Cyan),
+            Style::default().fg(app.theme.accent),
         )));
         lines.push(Line::from(Span::styled(
             " → Available via [d] Curl",
-            Style::default().fg(Color::Green),
+            Style::default().fg(app.theme.success),
         )));
     } else {
         lines.push(Line::from(Span::styled(
             " No homepage linked",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(app.theme.border),
         )));
     }
     lines.push(Line::from(""));
@@ -713,11 +717,11 @@ fn render_context_panel(f: &mut Frame, app: &App, area: Rect) {
     lines.push(Line::from(Span::styled(" MAINTAINER", hdr)));
     lines.push(Line::from(Span::styled(
         " ──────────────────────────",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(app.theme.border),
     )));
     lines.push(Line::from(Span::styled(
         format!(" {}", pkg.packager),
-        Style::default().fg(Color::White),
+        Style::default().fg(app.theme.foreground),
     )));
     lines.push(Line::from(""));
 
@@ -725,22 +729,22 @@ fn render_context_panel(f: &mut Frame, app: &App, area: Rect) {
     lines.push(Line::from(Span::styled(" SELECTION", hdr)));
     lines.push(Line::from(Span::styled(
         " ──────────────────────────",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(app.theme.border),
     )));
     let sel_count = app.selected.len();
     if sel_count > 0 {
         lines.push(Line::from(Span::styled(
             format!(" {} package(s) selected", sel_count),
-            Style::default().fg(Color::Yellow),
+            Style::default().fg(app.theme.selected),
         )));
         lines.push(Line::from(Span::styled(
             " [i] Install  [u] Update  [r] Remove",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(app.theme.border),
         )));
     } else {
         lines.push(Line::from(Span::styled(
             " None — use [Space] to select",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(app.theme.border),
         )));
     }
 
@@ -752,12 +756,12 @@ fn render_context_panel(f: &mut Frame, app: &App, area: Rect) {
 fn render_footer(f: &mut Frame, app: &mut App, area: Rect) {
     app.check_msg_expiry();
 
-    let keys = " [/] Search │ [Space] Select │ [1-7] Tabs │ [E] Script │ [?] Help │ [q] Quit ";
+    let keys = " [/] Search │ [Space] Select │ [1-7] Tabs │ [E] Script │ [t] Theme │ [?] Help │ [q] Quit ";
     f.render_widget(
         Paragraph::new(keys).style(
             Style::default()
-                .fg(Color::DarkGray)
-                .bg(Color::Black)
+                .fg(app.theme.border)
+                .bg(app.theme.background)
                 .add_modifier(Modifier::REVERSED),
         ),
         area,
@@ -775,8 +779,8 @@ fn render_footer(f: &mut Frame, app: &mut App, area: Rect) {
             f.render_widget(
                 Paragraph::new(display).style(
                     Style::default()
-                        .fg(Color::White)
-                        .bg(Color::Black)
+                        .fg(app.theme.foreground)
+                        .bg(app.theme.background)
                         .add_modifier(Modifier::BOLD | Modifier::REVERSED),
                 ),
                 r,
@@ -1123,4 +1127,155 @@ fn render_console_overlay(f: &mut Frame, area: Rect, app: &App) {
         .scroll((scroll_offset as u16, 0));
 
     f.render_widget(paragraph, popup);
+}
+
+fn render_theme_builder_overlay(f: &mut Frame, area: Rect, app: &App) {
+    let popup = centered_rect(80, 80, area);
+    f.render_widget(Clear, popup);
+
+    let border_color = app.theme.accent;
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(Span::styled(
+            " 🎨  THEME BUILDER & SELECTOR ",
+            Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD),
+        ))
+        .border_style(Style::default().fg(border_color))
+        .style(Style::default().bg(app.theme.background).fg(app.theme.foreground));
+
+    let inner = block.inner(popup);
+    f.render_widget(block, popup);
+
+    // Split inner into Left (Fields) and Right (Live Preview)
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ])
+        .split(inner);
+
+    // Left pane: Attribute list
+    let fields = &[
+        ("Theme Preset", if app.theme_builder_selected_theme_idx < crate::theme::THEMES.len() {
+            crate::theme::THEMES[app.theme_builder_selected_theme_idx].name
+        } else {
+            "custom"
+        }),
+        ("Background", crate::theme::color_name(app.theme.background)),
+        ("Foreground", crate::theme::color_name(app.theme.foreground)),
+        ("Border", crate::theme::color_name(app.theme.border)),
+        ("Highlight FG", crate::theme::color_name(app.theme.highlight_fg)),
+        ("Highlight BG", crate::theme::color_name(app.theme.highlight_bg)),
+        ("Accent", crate::theme::color_name(app.theme.accent)),
+        ("Selected", crate::theme::color_name(app.theme.selected)),
+        ("Success", crate::theme::color_name(app.theme.success)),
+        ("Warning", crate::theme::color_name(app.theme.warning)),
+        ("Error", crate::theme::color_name(app.theme.error)),
+    ];
+
+    let mut list_items = Vec::new();
+    for (i, &(label, val)) in fields.iter().enumerate() {
+        let is_selected = i == app.theme_builder_cursor;
+        
+        let label_span = Span::styled(
+            format!("  {:<15}", label),
+            if is_selected {
+                Style::default().fg(app.theme.highlight_fg).bg(app.theme.highlight_bg).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(app.theme.foreground)
+            }
+        );
+
+        let value_span = Span::styled(
+            format!(" < {} >", val),
+            if is_selected {
+                Style::default().fg(app.theme.highlight_fg).bg(app.theme.highlight_bg).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD)
+            }
+        );
+
+        list_items.push(ListItem::new(Line::from(vec![label_span, value_span])));
+    }
+
+    let fields_list = List::new(list_items)
+        .block(Block::default().borders(Borders::RIGHT).border_style(Style::default().fg(app.theme.border)));
+
+    f.render_widget(fields_list, chunks[0]);
+
+    // Right pane: Live Preview!
+    let preview_area = chunks[1];
+    let preview_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // Heading
+            Constraint::Length(1), // Spacer
+            Constraint::Length(3), // Mock List (Tab + package)
+            Constraint::Length(1), // Spacer
+            Constraint::Min(4),    // Mock Details
+            Constraint::Length(1), // Spacer
+            Constraint::Length(3), // Mock Buttons
+        ])
+        .split(preview_area);
+
+    f.render_widget(
+        Paragraph::new(" LIVE PREVIEW ").alignment(Alignment::Center).style(Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD)),
+        preview_layout[0]
+    );
+
+    // Mock List Item
+    let mock_icon = status_icon(true, false, &app.theme);
+    let mock_name = Span::styled(" example-pkg", Style::default().fg(app.theme.foreground));
+    let mock_ver = Span::styled(" [1.2.3-4]", Style::default().fg(app.theme.accent));
+    let mock_list_item = Line::from(vec![mock_icon, mock_name, mock_ver]);
+    let mock_list_block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Mock List ")
+        .border_style(Style::default().fg(app.theme.border));
+    let mock_list_widget = Paragraph::new(mock_list_item)
+        .block(mock_list_block)
+        .style(Style::default().bg(app.theme.background).fg(app.theme.foreground));
+    f.render_widget(mock_list_widget, preview_layout[2]);
+
+    // Mock Details
+    let mut details_lines = Vec::new();
+    details_lines.push(Line::from(Span::styled(" example-pkg", Style::default().fg(app.theme.foreground).add_modifier(Modifier::BOLD))));
+    details_lines.push(Line::from(vec![
+        Span::styled("  Repository  ", Style::default().fg(app.theme.border)),
+        Span::styled("core", Style::default().fg(app.theme.accent)),
+    ]));
+    details_lines.push(Line::from(vec![
+        Span::styled("  Description ", Style::default().fg(app.theme.border)),
+        Span::styled("This is a live preview of the theme.", Style::default().fg(app.theme.foreground)),
+    ]));
+    let mock_details_block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Mock Details ")
+        .border_style(Style::default().fg(app.theme.border));
+    let mock_details_widget = Paragraph::new(details_lines)
+        .block(mock_details_block)
+        .style(Style::default().bg(app.theme.background).fg(app.theme.foreground));
+    f.render_widget(mock_details_widget, preview_layout[4]);
+
+    // Mock Buttons
+    let button_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ])
+        .split(preview_layout[6]);
+
+    let mock_btn1 = Paragraph::new(" [i] Install ")
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(app.theme.accent)))
+        .style(Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD))
+        .alignment(Alignment::Center);
+    let mock_btn2 = Paragraph::new(" [r] Remove ")
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(app.theme.error)))
+        .style(Style::default().fg(app.theme.error).add_modifier(Modifier::BOLD))
+        .alignment(Alignment::Center);
+
+    f.render_widget(mock_btn1, button_layout[0]);
+    f.render_widget(mock_btn2, button_layout[1]);
 }

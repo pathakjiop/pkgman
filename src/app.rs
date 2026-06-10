@@ -74,10 +74,38 @@ pub struct App {
     pub current_line: String,
     pub terminal_needs_clear: bool,
     pub last_cursor_change: std::time::Instant,
+
+    pub theme: crate::theme::Theme,
+    pub theme_builder_open: bool,
+    pub theme_builder_cursor: usize,
+    pub theme_builder_selected_theme_idx: usize,
 }
 
 impl App {
     pub fn new() -> Self {
+        let cfg = crate::config::cfg();
+        let theme = crate::theme::resolve_theme(
+            &cfg.theme_name,
+            &cfg.theme_bg,
+            &cfg.theme_fg,
+            &cfg.theme_border,
+            &cfg.theme_highlight_fg,
+            &cfg.theme_highlight_bg,
+            &cfg.theme_accent,
+            &cfg.theme_selected,
+            &cfg.theme_success,
+            &cfg.theme_warning,
+            &cfg.theme_error,
+        );
+        let theme_builder_selected_theme_idx = if theme.name.to_lowercase() == "custom" {
+            crate::theme::THEMES.len()
+        } else {
+            crate::theme::THEMES
+                .iter()
+                .position(|t| t.name.to_lowercase() == theme.name.to_lowercase())
+                .unwrap_or(0)
+        };
+
         Self {
             pkgs: Vec::new(),
             view: Vec::new(),
@@ -115,6 +143,11 @@ impl App {
             current_line: String::new(),
             terminal_needs_clear: false,
             last_cursor_change: std::time::Instant::now(),
+
+            theme,
+            theme_builder_open: false,
+            theme_builder_cursor: 0,
+            theme_builder_selected_theme_idx,
         }
     }
 

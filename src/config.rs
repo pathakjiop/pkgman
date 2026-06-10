@@ -1,15 +1,39 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::OnceLock;
 
 pub struct Config {
     /// Enable AUR features: helper search/install, AUR DB load, foreign-pkg detail fetch.
     pub aur: bool,
+    pub theme_name: String,
+    pub theme_bg: String,
+    pub theme_fg: String,
+    pub theme_border: String,
+    pub theme_highlight_fg: String,
+    pub theme_highlight_bg: String,
+    pub theme_accent: String,
+    pub theme_selected: String,
+    pub theme_success: String,
+    pub theme_warning: String,
+    pub theme_error: String,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { aur: true }
+        Self {
+            aur: true,
+            theme_name: "default".to_string(),
+            theme_bg: "reset".to_string(),
+            theme_fg: "white".to_string(),
+            theme_border: "darkgray".to_string(),
+            theme_highlight_fg: "black".to_string(),
+            theme_highlight_bg: "cyan".to_string(),
+            theme_accent: "cyan".to_string(),
+            theme_selected: "yellow".to_string(),
+            theme_success: "green".to_string(),
+            theme_warning: "yellow".to_string(),
+            theme_error: "red".to_string(),
+        }
     }
 }
 
@@ -31,10 +55,14 @@ fn load() -> Config {
 
     // First run: seed a config. AUR on only if a helper is actually installed.
     let aur = installed_helper().is_some();
-    if let Some(p) = &path {
-        let _ = write_default(p, aur);
+    let c = Config {
+        aur,
+        ..Default::default()
+    };
+    if path.is_some() {
+        let _ = save_config(aur, &crate::theme::THEME_DEFAULT);
     }
-    Config { aur }
+    c
 }
 
 fn parse(text: &str) -> Config {
@@ -45,23 +73,59 @@ fn parse(text: &str) -> Config {
             continue;
         }
         let Some((k, v)) = line.split_once('=') else { continue };
+        let clean_val = v.trim().trim_matches('"').to_string();
         match k.trim() {
-            "aur" => c.aur = parse_bool(v.trim()).unwrap_or(c.aur),
+            "aur" => c.aur = parse_bool(&clean_val).unwrap_or(c.aur),
+            "theme" => c.theme_name = clean_val,
+            "theme_bg" => c.theme_bg = clean_val,
+            "theme_fg" => c.theme_fg = clean_val,
+            "theme_border" => c.theme_border = clean_val,
+            "theme_highlight_fg" => c.theme_highlight_fg = clean_val,
+            "theme_highlight_bg" => c.theme_highlight_bg = clean_val,
+            "theme_accent" => c.theme_accent = clean_val,
+            "theme_selected" => c.theme_selected = clean_val,
+            "theme_success" => c.theme_success = clean_val,
+            "theme_warning" => c.theme_warning = clean_val,
+            "theme_error" => c.theme_error = clean_val,
             _ => {}
         }
     }
     c
 }
 
-fn write_default(path: &Path, aur: bool) -> std::io::Result<()> {
+pub fn save_config(aur: bool, theme: &crate::theme::Theme) -> std::io::Result<()> {
+    let Some(path) = config_path() else { return Ok(()) };
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
     let body = format!(
         "# pkgman configuration\n\
          # aur: enable AUR helper (yay/paru) features. Set false for pacman-only.\n\
-         aur = {}\n",
-        aur
+         aur = {}\n\n\
+         # Theme Settings\n\
+         theme = \"{}\"\n\
+         theme_bg = \"{}\"\n\
+         theme_fg = \"{}\"\n\
+         theme_border = \"{}\"\n\
+         theme_highlight_fg = \"{}\"\n\
+         theme_highlight_bg = \"{}\"\n\
+         theme_accent = \"{}\"\n\
+         theme_selected = \"{}\"\n\
+         theme_success = \"{}\"\n\
+         theme_warning = \"{}\"\n\
+         theme_error = \"{}\"\n",
+        aur,
+        theme.name,
+        crate::theme::color_to_string(theme.background),
+        crate::theme::color_to_string(theme.foreground),
+        crate::theme::color_to_string(theme.border),
+        crate::theme::color_to_string(theme.highlight_fg),
+        crate::theme::color_to_string(theme.highlight_bg),
+        crate::theme::color_to_string(theme.accent),
+        crate::theme::color_to_string(theme.selected),
+        crate::theme::color_to_string(theme.success),
+        crate::theme::color_to_string(theme.warning),
+        crate::theme::color_to_string(theme.error)
     );
     std::fs::write(path, body)
 }

@@ -371,6 +371,82 @@ pub fn trigger_aur_search(query: String, tx: mpsc::UnboundedSender<AppEvent>) {
 
 pub fn handle_key(key: KeyEvent, app: &mut App, tx: &mpsc::UnboundedSender<AppEvent>) -> bool {
     let prev_cursor = app.cursor;
+    if app.theme_builder_open {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('t') | KeyCode::Char('T') | KeyCode::Enter => {
+                app.theme_builder_open = false;
+                let _ = crate::config::save_config(crate::config::cfg().aur, &app.theme);
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.theme_builder_cursor = if app.theme_builder_cursor == 0 {
+                    10
+                } else {
+                    app.theme_builder_cursor - 1
+                };
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                app.theme_builder_cursor = (app.theme_builder_cursor + 1) % 11;
+            }
+            KeyCode::Left | KeyCode::Char('h') | KeyCode::Right | KeyCode::Char('l') => {
+                let is_left = matches!(key.code, KeyCode::Left | KeyCode::Char('h'));
+                if app.theme_builder_cursor == 0 {
+                    let total_themes = crate::theme::THEMES.len() + 1; // predefined + custom
+                    let idx = app.theme_builder_selected_theme_idx;
+                    let new_idx = if is_left {
+                        if idx == 0 { total_themes - 1 } else { idx - 1 }
+                    } else {
+                        (idx + 1) % total_themes
+                    };
+                    app.theme_builder_selected_theme_idx = new_idx;
+                    if new_idx < crate::theme::THEMES.len() {
+                        app.theme = crate::theme::THEMES[new_idx];
+                    } else {
+                        app.theme.name = "custom";
+                    }
+                } else {
+                    let current_color = match app.theme_builder_cursor {
+                        1 => app.theme.background,
+                        2 => app.theme.foreground,
+                        3 => app.theme.border,
+                        4 => app.theme.highlight_fg,
+                        5 => app.theme.highlight_bg,
+                        6 => app.theme.accent,
+                        7 => app.theme.selected,
+                        8 => app.theme.success,
+                        9 => app.theme.warning,
+                        10 => app.theme.error,
+                        _ => unreachable!(),
+                    };
+                    let colors = crate::theme::COLORS;
+                    let pos = colors.iter().position(|&c| c == current_color).unwrap_or(0);
+                    let new_pos = if is_left {
+                        if pos == 0 { colors.len() - 1 } else { pos - 1 }
+                    } else {
+                        (pos + 1) % colors.len()
+                    };
+                    let new_color = colors[new_pos];
+                    app.theme.name = "custom";
+                    app.theme_builder_selected_theme_idx = crate::theme::THEMES.len();
+                    match app.theme_builder_cursor {
+                        1 => app.theme.background = new_color,
+                        2 => app.theme.foreground = new_color,
+                        3 => app.theme.border = new_color,
+                        4 => app.theme.highlight_fg = new_color,
+                        5 => app.theme.highlight_bg = new_color,
+                        6 => app.theme.accent = new_color,
+                        7 => app.theme.selected = new_color,
+                        8 => app.theme.success = new_color,
+                        9 => app.theme.warning = new_color,
+                        10 => app.theme.error = new_color,
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+        return false;
+    }
+
     if app.sudo_password_mode {
         match key.code {
             KeyCode::Enter => {
@@ -647,6 +723,10 @@ pub fn handle_key(key: KeyEvent, app: &mut App, tx: &mpsc::UnboundedSender<AppEv
         }
         KeyCode::Char('s') => {
             app.cycle_sort();
+        }
+        KeyCode::Char('t') | KeyCode::Char('T') => {
+            app.theme_builder_open = true;
+            app.theme_builder_cursor = 0;
         }
         KeyCode::Char('?') => {
             app.show_help = true;
