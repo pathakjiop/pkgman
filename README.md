@@ -130,8 +130,7 @@ paru -Sl aur > /dev/null
 | `i` | Install selected package(s) |
 | `r` | Remove selected package(s) |
 | `u` | System upgrade (`-Syu`) |
-| `d` | Fetch package homepage (async) |
-| `E` | Preview shell script safely |
+| `d` | Open package homepage (xdg-open) |
 | `R` | Reload package databases (async) |
 | `s` | Cycle sort mode |
 | `?` | Toggle help overlay |

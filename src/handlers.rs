@@ -1,10 +1,7 @@
 use crate::app::{App, ConfirmAction, FILTERS};
 use crate::event::AppEvent;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::io::{self, Write};
 use std::process::Command;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
-use crossterm::ExecutableCommand;
 use tokio::sync::mpsc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -197,32 +194,6 @@ pub fn trigger_aur_details_fetch(name: String, tx: mpsc::UnboundedSender<AppEven
             }
         }
     });
-}
-
-pub fn execute_external(cmd_name: &str, args: &[&str]) -> io::Result<()> {
-    disable_raw_mode()?;
-    io::stdout().execute(LeaveAlternateScreen)?;
-    
-    println!("\n\x1b[1;36m→ Running: {} {}\x1b[0m\n", cmd_name, args.join(" "));
-    
-    let mut child = Command::new(cmd_name)
-        .args(args)
-        .stdin(std::process::Stdio::inherit())
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .spawn()?;
-        
-    let _ = child.wait()?;
-    
-    print!("\n\x1b[1;33mPress Enter to return to pkgtui…\x1b[0m");
-    io::stdout().flush()?;
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    
-    io::stdout().execute(EnterAlternateScreen)?;
-    enable_raw_mode()?;
-    
-    Ok(())
 }
 
 pub fn trigger_db_reload(tx: mpsc::UnboundedSender<AppEvent>) {
