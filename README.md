@@ -230,7 +230,7 @@ theme/catppuccin-mocha
 
 ```bash
 # 1. Fork the repo and clone your fork
-git clone https://github.com/<your-username>/pkgman.git
+git clone https://github.com/pathakjiop/pkgman.git
 cd pkgman
 
 # 2. Create your branch from main
