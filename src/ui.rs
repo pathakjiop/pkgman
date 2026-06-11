@@ -3,7 +3,10 @@ use ratatui::{
 	layout::{Alignment, Constraint, Direction, Layout, Rect},
 	style::{Color, Modifier, Style},
 	text::{Line, Span},
-	widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
+	widgets::{
+		Block, Borders, Clear, List, ListItem, Paragraph, Wrap,
+		Scrollbar, ScrollbarOrientation, ScrollbarState,
+	},
 };
 
 use crate::app::{App, ConfirmAction, FILTERS};
@@ -13,7 +16,9 @@ const HELP_LINES: &[(&str, &str)] = &[
 	("↑ / k", "Move up"),
 	("↓ / j", "Move down"),
 	("PgUp / PgDn", "Scroll full page"),
-	("J / K", "Scroll detail pane"),
+	("J / K", "Scroll details / tree"),
+	("Ctrl+j / Ctrl+k", "Scroll details / tree"),
+	("Ctrl+↑ / Ctrl+↓", "Scroll details / tree"),
 	("Home / End", "Jump to top / bottom"),
 	("", ""),
 	("TABS & SEARCH", ""),
@@ -364,7 +369,7 @@ fn render_package_list(f: &mut Frame, app: &mut App, area: Rect) {
 
 // ── detail panel ────────────────────────────────────────────────────
 
-fn render_detail_panel(f: &mut Frame, app: &App, area: Rect) {
+fn render_detail_panel(f: &mut Frame, app: &mut App, area: Rect) {
 	let title = if app.show_dep_tree {
 		" Details (Dependency Tree) "
 	} else {
@@ -397,7 +402,7 @@ fn render_detail_panel(f: &mut Frame, app: &App, area: Rect) {
 		render_empty_detail(f, inner, &app.theme);
 		return;
 	}
-	let pkg = &app.pkgs[pkg_idx];
+	let pkg = app.pkgs[pkg_idx].clone();
 
 	// split into info + actions
 	let chunks = Layout::default()
@@ -409,11 +414,11 @@ fn render_detail_panel(f: &mut Frame, app: &App, area: Rect) {
 		.split(inner);
 
 	if app.show_dep_tree {
-		render_dep_tree(f, app, chunks[0], app.detail_top as u16);
+		render_dep_tree(f, app, chunks[0]);
 	} else {
-		render_detail_info(f, pkg, chunks[0], app.detail_top as u16, &app.theme);
+		render_detail_info(f, &pkg, chunks[0], app);
 	}
-	render_action_buttons(f, pkg, chunks[1], &app.theme);
+	render_action_buttons(f, &pkg, chunks[1], &app.theme);
 }
 
 fn render_empty_detail(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
@@ -442,9 +447,8 @@ fn parse_tree_line(line: &str) -> (String, String, Option<String>) {
 
 fn render_dep_tree(
 	f: &mut Frame,
-	app: &App,
+	app: &mut App,
 	area: Rect,
-	scroll: u16,
 ) {
 	let theme = &app.theme;
 	let val = Style::default().fg(theme.foreground);
@@ -489,11 +493,39 @@ fn render_dep_tree(
 		}
 	}
 
+	let content_length = lines.len();
+	let max_scroll = content_length.saturating_sub(area.height as usize);
+	if app.detail_top > max_scroll {
+		app.detail_top = max_scroll;
+	}
+	let scroll = app.detail_top as u16;
+
+	let text_area = Rect {
+		x: area.x,
+		y: area.y,
+		width: area.width.saturating_sub(1),
+		height: area.height,
+	};
+
 	let paragraph = Paragraph::new(lines)
 		.wrap(Wrap { trim: false })
 		.scroll((scroll, 0));
 
-	f.render_widget(paragraph, area);
+	f.render_widget(paragraph, text_area);
+
+	if content_length > area.height as usize {
+		let scrollbar = Scrollbar::default()
+			.orientation(ScrollbarOrientation::VerticalRight)
+			.begin_symbol(Some("▲"))
+			.end_symbol(Some("▼"))
+			.track_symbol(Some("│"))
+			.thumb_symbol("█")
+			.style(Style::default().fg(theme.border));
+		let mut scrollbar_state = ScrollbarState::default()
+			.content_length(content_length)
+			.position(scroll as usize);
+		f.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
+	}
 }
 
 /// Render a `label  value` detail row, word-wrapping the value with a hanging
@@ -547,9 +579,9 @@ fn render_detail_info(
 	f: &mut Frame,
 	pkg: &crate::app::Package,
 	area: Rect,
-	scroll: u16,
-	theme: &crate::theme::Theme,
+	app: &mut App,
 ) {
+	let theme = &app.theme;
 	let kw = 16; // label width
 	let sep = Style::default().fg(theme.border);
 	let val = Style::default().fg(theme.foreground);
@@ -720,11 +752,39 @@ fn render_detail_info(
 		}
 	}
 
+	let content_length = lines.len();
+	let max_scroll = content_length.saturating_sub(area.height as usize);
+	if app.detail_top > max_scroll {
+		app.detail_top = max_scroll;
+	}
+	let scroll = app.detail_top as u16;
+
+	let text_area = Rect {
+		x: area.x,
+		y: area.y,
+		width: area.width.saturating_sub(1),
+		height: area.height,
+	};
+
 	let paragraph = Paragraph::new(lines)
 		.wrap(Wrap { trim: false })
 		.scroll((scroll, 0));
 
-	f.render_widget(paragraph, area);
+	f.render_widget(paragraph, text_area);
+
+	if content_length > area.height as usize {
+		let scrollbar = Scrollbar::default()
+			.orientation(ScrollbarOrientation::VerticalRight)
+			.begin_symbol(Some("▲"))
+			.end_symbol(Some("▼"))
+			.track_symbol(Some("│"))
+			.thumb_symbol("█")
+			.style(Style::default().fg(theme.border));
+		let mut scrollbar_state = ScrollbarState::default()
+			.content_length(content_length)
+			.position(scroll as usize);
+		f.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
+	}
 }
 
 // ── action buttons ──────────────────────────────────────────────────

@@ -643,6 +643,20 @@ pub fn handle_key(key: KeyEvent, app: &mut App, tx: &mpsc::UnboundedSender<AppEv
 
 	let list_height = 20;
 	match key.code {
+		// Scroll details / dependency tree when Ctrl is held
+		KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+			app.detail_top = app.detail_top.saturating_sub(1);
+		}
+		KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+			app.detail_top = app.detail_top.saturating_add(1);
+		}
+		KeyCode::Up if key.modifiers.contains(KeyModifiers::CONTROL) => {
+			app.detail_top = app.detail_top.saturating_sub(1);
+		}
+		KeyCode::Down if key.modifiers.contains(KeyModifiers::CONTROL) => {
+			app.detail_top = app.detail_top.saturating_add(1);
+		}
+
 		KeyCode::Up | KeyCode::Char('k') if app.cursor > 0 => {
 			app.cursor -= 1;
 			app.detail_top = 0;
@@ -670,6 +684,18 @@ pub fn handle_key(key: KeyEvent, app: &mut App, tx: &mpsc::UnboundedSender<AppEv
 			app.cursor = (app.cursor + list_height).min(app.view.len() - 1);
 			app.detail_top = 0;
 			if app.cursor >= app.list_top + list_height {
+				app.list_top = app.cursor - list_height + 1;
+			}
+		}
+		KeyCode::Home => {
+			app.cursor = 0;
+			app.detail_top = 0;
+			app.list_top = 0;
+		}
+		KeyCode::End if !app.view.is_empty() => {
+			app.cursor = app.view.len() - 1;
+			app.detail_top = 0;
+			if app.cursor >= list_height {
 				app.list_top = app.cursor - list_height + 1;
 			}
 		}
