@@ -2,35 +2,17 @@
 
 Contributions are very welcome. To keep things clean and mergeable, please follow these conventions.
 
-### Branch naming
-
-All work branches must follow this pattern:
+### Fork & Branch
 
 ```
-<type>/<short-description>
+# fork first
+git checkout <existing>
+git checkout -b <new>
+git add <file(s)>
+git commit 
+# describe what this commit fixes, ideally one fix per commit
+git push
 ```
-
-| Type | When to use |
-|------|-------------|
-| `feat/` | New feature or capability |
-| `fix/` | Bug fix |
-| `theme/` | Theming-related work |
-| `docs/` | Documentation only |
-| `refactor/` | Code restructure, no behavior change |
-| `perf/` | Performance improvement |
-| `chore/` | Tooling, CI, dependencies |
-| `test/` | Tests only |
-
-**Examples:**
-```
-feat/theme-engine
-fix/aur-cache-fallback
-docs/contributing-guide
-refactor/event-loop-cleanup
-theme/catppuccin-mocha
-```
-
-> ⚠ PRs from branches that don't match this pattern will be asked to rename before review.
 
 ### Workflow
 
@@ -49,14 +31,21 @@ git commit -m "feat: add catppuccin theme support"
 git push origin feat/your-feature-name
 ```
 
+### Checks
+
+```
+cargo fmt --check
+cargo clippy
+```
+
 ### Commit message format
 
 Follow the conventional commit style:
 
 ```
-<type>: <short imperative description>
+<type>(subject): <short imperative description>
 
-Optional longer body explaining the why, not the what.
+Optional longer body explaining the why/how, not the what.
 ```
 
 ### PR checklist
@@ -65,12 +54,8 @@ Before opening a PR, make sure:
 
 - [ ] `cargo build --release` succeeds with no warnings
 - [ ] Your branch name follows the naming convention above
-- [ ] Changes are scoped — one concern per PR
+- [ ] Changes are scoped: one concern per PR
 - [ ] You've updated documentation if behavior changed
 - [ ] For new features, a brief description is in the PR body
-
-### Good first issues
-
-Look for issues tagged [`good first issue`](https://github.com/pathakjiop/pkgman/issues?q=label%3A"good+first+issue") — these are intentionally scoped for newcomers.
 
 ---
