@@ -57,5 +57,6 @@ Before opening a PR, make sure:
 - [ ] Changes are scoped: one concern per PR
 - [ ] You've updated documentation if behavior changed
 - [ ] For new features, a brief description is in the PR body
+- [ ] For issues, linking to existing #XXXX is useful too
 
 ---
