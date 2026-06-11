@@ -354,6 +354,7 @@ pub const THEMES: &[Theme] = &[
 
 /// Return a `Theme` by name, or build a fully custom one from individual
 /// color strings (named or `#RRGGBB` hex).
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_theme(
 	theme_name: &str,
 	bg: &str,

@@ -122,6 +122,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
 							);
 						}
 					}
+
+					// Check if we need to fetch the dependency tree
+					if app.show_dep_tree && !app.view.is_empty() && app.cursor < app.view.len() {
+						let idx = app.view[app.cursor];
+						if idx < app.pkgs.len() {
+							let name = &app.pkgs[idx].name;
+							if app.dep_tree_pkg_name.as_ref() != Some(name)
+								&& !app.dep_tree_loading
+								&& app.last_cursor_change.elapsed() > Duration::from_millis(250)
+							{
+								app.dep_tree_loading = true;
+								app.dep_tree_content.clear();
+								handlers::trigger_dep_tree_fetch(
+									name.clone(),
+									app.pkgs[idx].installed,
+									tx.clone(),
+								);
+							}
+						}
+					}
 				}
 				AppEvent::Key(key) => {
 					if handle_key(key, &mut app, &tx) {
@@ -130,6 +150,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 				}
 				AppEvent::DbLoaded(pkgs) => {
 					app.pkgs = pkgs;
+					app.update_installed_cache();
 					app.needs_filter = true;
 				}
 				AppEvent::AurLoaded(aur) => {
@@ -140,6 +161,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 							app.pkgs.push(a);
 						}
 					}
+					app.update_installed_cache();
 					app.is_loading = false;
 					let count = app.pkgs.len();
 					app.set_msg(
@@ -174,10 +196,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					{
 						let installed = app.pkgs[idx].installed;
 						let upgradable = app.pkgs[idx].upgradable;
-						app.pkgs[idx] = fetched;
+						app.pkgs[idx] = *fetched;
 						app.pkgs[idx].installed = installed;
 						app.pkgs[idx].upgradable = upgradable;
 						app.pkgs[idx].repo = "aur".to_string();
+					}
+					app.update_installed_cache();
+				}
+				AppEvent::DepTreeLoaded(pkg_name, res) => {
+					if !app.view.is_empty() && app.cursor < app.view.len() {
+						let current_pkg_name = &app.pkgs[app.view[app.cursor]].name;
+						if current_pkg_name == &pkg_name {
+							app.dep_tree_loading = false;
+							match res {
+								Ok(tree) => {
+									app.dep_tree_content = tree;
+									app.dep_tree_pkg_name = Some(pkg_name);
+								}
+								Err(err) => {
+									app.dep_tree_content = vec![
+										"Error loading dependency tree:".to_string(),
+										err,
+									];
+									app.dep_tree_pkg_name = Some(pkg_name);
+								}
+							}
+						}
 					}
 				}
 			}

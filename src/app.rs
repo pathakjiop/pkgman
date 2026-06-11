@@ -84,6 +84,11 @@ pub struct App {
 	pub theme_builder_open: bool,
 	pub theme_builder_cursor: usize,
 	pub theme_builder_selected_theme_idx: usize,
+	pub show_dep_tree: bool,
+	pub dep_tree_loading: bool,
+	pub dep_tree_content: Vec<String>,
+	pub dep_tree_pkg_name: Option<String>,
+	pub installed_pkgs: HashSet<String>,
 }
 
 impl App {
@@ -150,6 +155,11 @@ impl App {
 			theme_builder_open: false,
 			theme_builder_cursor: 0,
 			theme_builder_selected_theme_idx,
+			show_dep_tree: false,
+			dep_tree_loading: false,
+			dep_tree_content: Vec::new(),
+			dep_tree_pkg_name: None,
+			installed_pkgs: HashSet::new(),
 		}
 	}
 
@@ -286,6 +296,14 @@ impl App {
 		}
 		// Auto scroll to bottom
 		self.console_scroll = self.console_lines.len();
+	}
+
+	pub fn update_installed_cache(&mut self) {
+		self.installed_pkgs = self.pkgs
+			.iter()
+			.filter(|p| p.installed)
+			.map(|p| p.name.clone())
+			.collect();
 	}
 }
 
@@ -485,7 +503,7 @@ pub fn load_aur_sync() -> Vec<Package> {
 				&& let Ok(file) = File::open(&path)
 			{
 				let reader = BufReader::new(file);
-				for l in reader.lines().flatten() {
+				for l in reader.lines().map_while(Result::ok) {
 					let parts: Vec<&str> = l.split_whitespace().collect();
 					if parts.len() >= 2 && parts[1].to_uppercase() == "AUR" {
 						let name = parts[0].to_string();

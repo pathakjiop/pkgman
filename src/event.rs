@@ -8,5 +8,6 @@ pub enum AppEvent {
 	ConsoleFinished(bool),
 	LoadingDone, // clear the loading spinner without altering the status message
 	Resize,
-	AurDetailsLoaded(crate::app::Package),
+	AurDetailsLoaded(Box<crate::app::Package>),
+	DepTreeLoaded(String, Result<Vec<String>, String>),
 }

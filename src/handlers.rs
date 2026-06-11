@@ -217,7 +217,7 @@ pub fn trigger_aur_details_fetch(name: String, tx: mpsc::UnboundedSender<AppEven
 					&std::collections::HashSet::new(),
 					&std::collections::HashSet::new(),
 				) {
-				let _ = tx.send(AppEvent::AurDetailsLoaded(pkg));
+				let _ = tx.send(AppEvent::AurDetailsLoaded(Box::new(pkg)));
 			}
 		}
 	});
@@ -275,6 +275,39 @@ pub fn trigger_open_homepage(url: String, tx: mpsc::UnboundedSender<AppEvent>) {
 		}
 	});
 }
+
+pub fn trigger_dep_tree_fetch(
+	name: String,
+	installed: bool,
+	tx: mpsc::UnboundedSender<AppEvent>,
+) {
+	tokio::spawn(async move {
+		let mut cmd = tokio::process::Command::new("pactree");
+		cmd.arg("-a");
+		if !installed {
+			cmd.arg("-s");
+		}
+		cmd.arg(&name);
+		let output = cmd.output().await;
+		match output {
+			Ok(out) if out.status.success() => {
+				let tree = String::from_utf8_lossy(&out.stdout)
+					.lines()
+					.map(|s| s.to_string())
+					.collect::<Vec<String>>();
+				let _ = tx.send(AppEvent::DepTreeLoaded(name, Ok(tree)));
+			}
+			Ok(out) => {
+				let err_msg = String::from_utf8_lossy(&out.stderr).trim().to_string();
+				let _ = tx.send(AppEvent::DepTreeLoaded(name, Err(err_msg)));
+			}
+			Err(e) => {
+				let _ = tx.send(AppEvent::DepTreeLoaded(name, Err(e.to_string())));
+			}
+		}
+	});
+}
+
 
 pub fn trigger_aur_search(query: String, tx: mpsc::UnboundedSender<AppEvent>) {
 	tokio::spawn(async move {
@@ -702,6 +735,18 @@ pub fn handle_key(key: KeyEvent, app: &mut App, tx: &mpsc::UnboundedSender<AppEv
 		KeyCode::Char('t') | KeyCode::Char('T') => {
 			app.theme_builder_open = true;
 			app.theme_builder_cursor = 0;
+		}
+		KeyCode::Char('v') | KeyCode::Char('V') => {
+			app.show_dep_tree = !app.show_dep_tree;
+			app.detail_top = 0; // reset scroll
+			if app.show_dep_tree && !app.view.is_empty() && app.cursor < app.view.len() {
+				let pkg = &app.pkgs[app.view[app.cursor]];
+				if app.dep_tree_pkg_name.as_ref() != Some(&pkg.name) {
+					app.dep_tree_loading = true;
+					app.dep_tree_content.clear();
+					trigger_dep_tree_fetch(pkg.name.clone(), pkg.installed, tx.clone());
+				}
+			}
 		}
 		KeyCode::Char('?') => {
 			app.show_help = true;

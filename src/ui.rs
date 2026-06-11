@@ -30,6 +30,7 @@ const HELP_LINES: &[(&str, &str)] = &[
 	("R (shift)", "Reload packages"),
 	("s", "Cycle sort mode"),
 	("t", "Theme Selector / Builder"),
+	("v", "Toggle Dep Tree view"),
 	("?", "Toggle help"),
 	("q", "Quit"),
 ];
@@ -217,7 +218,7 @@ fn render_main(f: &mut Frame, app: &mut App, area: Rect) {
 	let wide = area.width >= 130;
 
 	let cols = if wide {
-		let list_w = (area.width as usize / 3).max(36).min(44);
+		let list_w = (area.width as usize / 3).clamp(36, 44);
 		let ctx_w = 34u16;
 		let _detail_w = area
 			.width
@@ -232,7 +233,7 @@ fn render_main(f: &mut Frame, app: &mut App, area: Rect) {
 			])
 			.split(area)
 	} else {
-		let list_w = (area.width as usize / 3).max(36).min(44);
+		let list_w = (area.width as usize / 3).clamp(36, 44);
 		let _detail_w = area.width.saturating_sub(list_w as u16);
 		Layout::default()
 			.direction(Direction::Horizontal)
@@ -364,9 +365,23 @@ fn render_package_list(f: &mut Frame, app: &mut App, area: Rect) {
 // ── detail panel ────────────────────────────────────────────────────
 
 fn render_detail_panel(f: &mut Frame, app: &App, area: Rect) {
+	let title = if app.show_dep_tree {
+		" Details (Dependency Tree) "
+	} else {
+		" Details (Info) "
+	};
+	let title_bottom = if app.show_dep_tree {
+		" [v] Info "
+	} else {
+		" [v] Dep Tree "
+	};
 	let block = Block::default()
 		.borders(Borders::ALL)
-		.title(" Details ")
+		.title(title)
+		.title_bottom(Line::from(Span::styled(
+			title_bottom,
+			Style::default().fg(app.theme.border),
+		)))
 		.border_style(Style::default().fg(app.theme.border));
 
 	let inner = block.inner(area);
@@ -393,7 +408,11 @@ fn render_detail_panel(f: &mut Frame, app: &App, area: Rect) {
 		])
 		.split(inner);
 
-	render_detail_info(f, pkg, chunks[0], app.detail_top as u16, &app.theme);
+	if app.show_dep_tree {
+		render_dep_tree(f, app, chunks[0], app.detail_top as u16);
+	} else {
+		render_detail_info(f, pkg, chunks[0], app.detail_top as u16, &app.theme);
+	}
 	render_action_buttons(f, pkg, chunks[1], &app.theme);
 }
 
@@ -401,6 +420,80 @@ fn render_empty_detail(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
 	let txt = Paragraph::new("\n  Select a package to view details")
 		.style(Style::default().fg(theme.border));
 	f.render_widget(txt, area);
+}
+
+fn parse_tree_line(line: &str) -> (String, String, Option<String>) {
+	let last_idx = line.rfind(['|', '`']);
+	let (prefix, remainder) = match last_idx {
+		Some(idx) if idx + 2 <= line.len() => {
+			(&line[0..idx + 2], &line[idx + 2..])
+		}
+		_ => ("", line),
+	};
+
+	if let Some(pos) = remainder.find(" provides ") {
+		let pkg = &remainder[..pos];
+		let provides = &remainder[pos + " provides ".len()..];
+		(prefix.to_string(), pkg.to_string(), Some(provides.to_string()))
+	} else {
+		(prefix.to_string(), remainder.to_string(), None)
+	}
+}
+
+fn render_dep_tree(
+	f: &mut Frame,
+	app: &App,
+	area: Rect,
+	scroll: u16,
+) {
+	let theme = &app.theme;
+	let val = Style::default().fg(theme.foreground);
+
+	let mut lines: Vec<Line> = Vec::new();
+
+	if app.dep_tree_loading {
+		lines.push(Line::from(Span::styled("  Loading dependency tree...", val)));
+	} else if app.dep_tree_content.is_empty() {
+		lines.push(Line::from(Span::styled("  No dependency tree available.", val)));
+	} else {
+		for (line_idx, raw_line) in app.dep_tree_content.iter().enumerate() {
+			let (prefix, pkg, provides) = parse_tree_line(raw_line);
+
+			let mut spans = Vec::new();
+
+			if !prefix.is_empty() {
+				spans.push(Span::styled(prefix, Style::default().fg(theme.border)));
+			}
+
+			let is_root = line_idx == 0;
+			let is_installed = app.installed_pkgs.contains(&pkg);
+
+			let pkg_style = if is_root {
+				Style::default()
+					.fg(theme.accent)
+					.add_modifier(Modifier::BOLD)
+			} else if is_installed {
+				Style::default().fg(theme.success)
+			} else {
+				Style::default().fg(theme.foreground)
+			};
+
+			spans.push(Span::styled(pkg, pkg_style));
+
+			if let Some(target) = provides {
+				spans.push(Span::styled(" provides ", Style::default().fg(theme.border)));
+				spans.push(Span::styled(target, Style::default().fg(theme.accent)));
+			}
+
+			lines.push(Line::from(spans));
+		}
+	}
+
+	let paragraph = Paragraph::new(lines)
+		.wrap(Wrap { trim: false })
+		.scroll((scroll, 0));
+
+	f.render_widget(paragraph, area);
 }
 
 /// Render a `label  value` detail row, word-wrapping the value with a hanging
@@ -1238,24 +1331,25 @@ fn render_theme_builder_overlay(f: &mut Frame, area: Rect, app: &App) {
 	f.render_widget(mock_list_widget, preview_layout[2]);
 
 	// Mock Details
-	let mut details_lines = Vec::new();
-	details_lines.push(Line::from(Span::styled(
-		" example-pkg",
-		Style::default()
-			.fg(app.theme.foreground)
-			.add_modifier(Modifier::BOLD),
-	)));
-	details_lines.push(Line::from(vec![
-		Span::styled("  Repository  ", Style::default().fg(app.theme.border)),
-		Span::styled("core", Style::default().fg(app.theme.accent)),
-	]));
-	details_lines.push(Line::from(vec![
-		Span::styled("  Description ", Style::default().fg(app.theme.border)),
-		Span::styled(
-			"This is a live preview of the theme.",
-			Style::default().fg(app.theme.foreground),
-		),
-	]));
+	let details_lines = vec![
+		Line::from(Span::styled(
+			" example-pkg",
+			Style::default()
+				.fg(app.theme.foreground)
+				.add_modifier(Modifier::BOLD),
+		)),
+		Line::from(vec![
+			Span::styled("  Repository  ", Style::default().fg(app.theme.border)),
+			Span::styled("core", Style::default().fg(app.theme.accent)),
+		]),
+		Line::from(vec![
+			Span::styled("  Description ", Style::default().fg(app.theme.border)),
+			Span::styled(
+				"This is a live preview of the theme.",
+				Style::default().fg(app.theme.foreground),
+			),
+		]),
+	];
 	let mock_details_block = Block::default()
 		.borders(Borders::ALL)
 		.title(" Mock Details ")
