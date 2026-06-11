@@ -147,7 +147,7 @@ A full theming system is planned that will allow full control over colors, pane 
 
 ## Roadmap
 
-- [ ] **Theming engine** — full color/style customization via `config.toml`
+- [x] **Theming engine** — full color/style customization via `config.toml`
 - [ ] **Built-in theme presets** — Catppuccin, Nord, Gruvbox, Tokyo Night
 - [ ] **Mouse support** — optional click-to-select
 - [ ] **AUR comment viewer** — inline AUR comments and flag status
