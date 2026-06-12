@@ -19,6 +19,7 @@ const HELP_LINES: &[(&str, &str)] = &[
 	("J / K", "Scroll details / tree"),
 	("Ctrl+j / Ctrl+k", "Scroll details / tree"),
 	("Ctrl+↑ / Ctrl+↓", "Scroll details / tree"),
+	("Ctrl+PgUp / Ctrl+PgDn", "Scroll details / tree full page"),
 	("Home / End", "Jump to top / bottom"),
 	("", ""),
 	("TABS & SEARCH", ""),

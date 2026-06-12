@@ -699,6 +699,12 @@ pub fn handle_key(key: KeyEvent, app: &mut App, tx: &mpsc::UnboundedSender<AppEv
 		KeyCode::Down if key.modifiers.contains(KeyModifiers::CONTROL) => {
 			app.detail_top = app.detail_top.saturating_add(1);
 		}
+		KeyCode::PageUp if key.modifiers.contains(KeyModifiers::CONTROL) => {
+			app.detail_top = app.detail_top.saturating_sub(20);
+		}
+		KeyCode::PageDown if key.modifiers.contains(KeyModifiers::CONTROL) => {
+			app.detail_top = app.detail_top.saturating_add(20);
+		}
 
 		KeyCode::Up | KeyCode::Char('k') if app.cursor > 0 => {
 			app.cursor -= 1;
