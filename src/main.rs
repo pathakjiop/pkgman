@@ -234,7 +234,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 							let _ = pty.master.resize(size);
 						}
 						if let Some(term) = app.console_term.as_mut() {
-							term.screen_mut().set_size(size.rows, size.cols);
+							term.screen_mut()
+								.set_size(size.rows, size.cols);
 						}
 					}
 					AppEvent::AurDetailsLoaded(fetched) => {
