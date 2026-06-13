@@ -784,6 +784,10 @@ pub fn handle_key(key: KeyEvent, app: &mut App, tx: &mpsc::UnboundedSender<AppEv
 				app.query.clear();
 				app.needs_filter = true;
 			}
+			KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+				app.query.pop();
+				app.needs_filter = true;
+			}
 			KeyCode::Char(c) => {
 				app.query.push(c);
 				app.needs_filter = true;
